@@ -1,5 +1,5 @@
 #!/bin/bash
-cd "$(dirname "$0")"
+cd "$(dirname "$0")/.."
 
 if [ ! -x "app/venv/bin/python" ]; then
     echo ""

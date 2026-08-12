@@ -5,6 +5,27 @@ the same format — see "Adding a new entry" at the bottom.
 
 ---
 
+## Frequently Asked Questions
+
+**Can I use this on multiple devices?**
+The tool is designed for one student on one device. If you work on
+different computers, you'll have separate logs — export each one and note
+which device it's from.
+
+**What if I make a mistake in a log?**
+You can manually edit JSON files in the `logs/` folder if needed. Each log
+is a plain text JSON file.
+
+**What if I want to start fresh?**
+Delete the `logs/` folder and the tool will create a fresh session on next
+run. The `artifacts/` folder is for you to manage.
+
+**Is this tool open source?**
+Yes, you're welcome to explore the code and modify it for your own needs
+after the course.
+
+---
+
 ## Folder still won't move, even though no python process is running
 
 **Symptom:** `Get-Process python,pythonw` (see the entry below) shows

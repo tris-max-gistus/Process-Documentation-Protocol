@@ -8,6 +8,7 @@ app/venv/
 # Runtime-generated local state
 app/launch_log.txt
 app/next_hint.json
+app/.shortcut_created
 logs/
 
 # Student-added content (artifacts/README.md is the only tracked file here)

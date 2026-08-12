@@ -400,7 +400,9 @@ def export_submission():
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     slug = get_title_slug()
     zip_filename = f"submission_{slug}_{timestamp}.zip" if slug else f"submission_{timestamp}.zip"
-    zip_path = PROJECT_ROOT / zip_filename
+    submit_dir = PROJECT_ROOT / "submit"
+    submit_dir.mkdir(exist_ok=True)
+    zip_path = submit_dir / zip_filename
 
     # Summary generation is best-effort: a bug in the new analysis code must
     # never block a student's ability to export their actual graded work.
