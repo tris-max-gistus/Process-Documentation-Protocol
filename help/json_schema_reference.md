@@ -1,77 +1,69 @@
 # How This Tool Stores Your Process as JSON
 
-This is a reference for what's actually inside the files in `/logs`, `/artifacts`, and inside an exported submission zip's `/summary` folder — and why they're shaped the way they are. It's written for anyone curious about the back-end structure, not just how to use the app.
+A reference for what's inside the files in `/logs`, and why they're shaped the way they are. It's written for anyone curious about the back end, not just how to use the app.
 
 ## The core idea
 
-Every event in a work session — checking in, logging an input, checking out — becomes **one flat JSON file**, written the moment you submit the form. Nothing is inferred, summarized, or transformed at write time: the file is a direct, literal record of what you typed. JSON is just a text format for representing that record as nested `"key": value` pairs, so it's both easy for the app to read back and easy for a human to open and read directly.
+One **log** is one JSON file. Everything you add (an input, a note, a pasted LLM output, a reflection) becomes an **entry** appended to the end of that file. Nothing is inferred or summarized when it's written: the file is a literal record of what you typed, in the order you typed it. The list of entries *is* the trace of your process.
 
-This is "process abstraction" in its simplest form: instead of trying to capture your whole work session as one blob, the tool breaks it into a small number of well-defined **event types**, each with a fixed, predictable shape. A whole process becomes a folder of small, dated, typed records rather than one unstructured document.
+JSON is just a text format of nested `"key": value` pairs, easy for the app to read back and easy for a person to open.
 
-## The event files (`/logs`)
+## File name
 
-### `session_<id>_checkin.json`
-One per Session Check-In.
+`<first-tag>_<YYYYMMDD-HHMM>.json`, for example `heat-exchangers_20261031-1304.json`. The first tag you typed when you started the log becomes the title and the start of the name. If two logs would get the same name, the second gets `-2` added.
 
-| field | type | meaning |
-|---|---|---|
-| `goal` | string | what you intend to accomplish this session |
-| `planned_duration` | string | free-text time estimate |
-| `checkin_notes` | string | anything else worth noting |
-| `timestamp` | string (ISO 8601) | when submitted |
-| `course_title` | string | stamped in automatically from `config.yaml` |
+## The log
 
-### `session_<id>_inputlog_<n>.json`
-One per Process Log block (the `<n>` counts up if you start more than one log in a session).
+```json
+{
+  "schema": "ui2-1",
+  "id": "heat-exchangers_20261031-1304",
+  "title": "Heat Exchangers",
+  "created": "2026-10-31T13:04:30",
+  "tags": ["Heat Exchangers", "thermo", "LMTD"],
+  "entries": [ ... ]
+}
+```
 
-| field | type | meaning |
-|---|---|---|
-| `intent` | string | what you're trying to do and expect to get |
-| `own_understanding` | string | your own prediction, written *before* using the LLM |
-| `inputs` | array of objects | the chronological log of the block — see below |
-| `timestamp` | string (ISO 8601) | when the block started |
-| `reflection_outcome` | string | what happened, post-hoc |
-| `reflection_errors` | string | frustrations, limitations hit |
-| `reflection_surprises` | string | what worked better than expected |
-| `reflection_timestamp` | string (ISO 8601) | when the block was closed |
+| field | meaning |
+|---|---|
+| `schema` | format version, so later tools know what shape to expect |
+| `id` | the file name without `.json` |
+| `title` | the first tag, as you typed it |
+| `created` | when the log was started (local time, ISO 8601) |
+| `tags` | every tag used in the log, first tag first (this is where your tag bank comes from) |
+| `entries` | the chronological list, below |
 
-The `inputs` array is the most interesting structure in the app: each entry is `{"type": "input" | "note", "index": number or null, "text": string, "timestamp": string}`. Inputs and notes are interleaved in the exact order you added them — the array itself *is* the trace of your process, not a summary of one. Inputs are numbered (`index`); notes aren't (`index` is `null`), since notes are asides rather than steps.
+## Entries
 
-### `session_<id>_checkout.json`
-One per Session Check-Out.
+```json
+{
+  "id": "heat-exchangers_20261031-1304:2",
+  "kind": "output",
+  "text": "Counterflow keeps a more uniform temperature difference...",
+  "summary": "explains dT uniformity",
+  "tags": ["llm-claim", "thermo"],
+  "topic": null,
+  "ts": "2026-10-31T13:04:38"
+}
+```
 
-| field | type | meaning |
-|---|---|---|
-| `duration_actual` | string | reflection on time-spent quality |
-| `final_thoughts` | string | open reflection |
-| `next_start` | string | carried forward to prefill your next check-in |
-| `confidence` / `clarity` / `support` | string, `"1"`-`"5"` | self-report scales |
-| `elapsed_hours` | number or `null` | **the one field you never type** — computed server-side from the time between check-in and check-out |
-| `timestamp` | string (ISO 8601) | when submitted |
-| `course_title` | string | stamped in automatically |
+| field | meaning |
+|---|---|
+| `id` | `<log id>:<position>`. Stable forever because entries are only appended, so other tools can point at one entry |
+| `kind` | `input` (what you typed to an LLM), `note` (your own thought), `output` (pasted LLM output), `pre` (expectation before working on a topic), `post` (what happened afterwards) |
+| `text` | what you wrote or pasted |
+| `summary` | optional one-liner, mainly used on outputs |
+| `tags` | tags you attached to this entry |
+| `topic` | required for `pre` and `post`; the short name that pairs them. `null` otherwise |
+| `ts` | when it was saved |
 
-## Artifacts (`/artifacts/process-log`)
-
-`artifact_<timestamp>_<tag>.json` — a flagged LLM output, saved separately from the main log because it's the *only* place in the whole tool where the model's output itself is stored (everywhere else records only what you typed).
-
-| field | type | meaning |
-|---|---|---|
-| `category` | string | free-text topic/handle |
-| `text` | string | the flagged output |
-| `tag` | string | `"helpful"`, `"problematic"`, or `"personal_value"` |
-| `timestamp` | string (ISO 8601) | |
-| `session_id` | string | links it back to a session, since it has no other connection to a log file |
-
-## `summary/summary.json` (export time only)
-
-When you export, `app/export.py` reads every file above and computes one more JSON file — purely derived, no new data collected. It's one level of abstraction up: counts, averages, and longest entries, rather than raw events.
-
-Key sections: `counts` (how many of each event type), `session_pairs` (check-in/check-out matching), `inputs` (`avg_inputs_per_inputlog`, `avg_inputs_per_session`, `inputlog_file_count`, `session_count_with_inputlogs`, `longest_input`), `scale_averages` (per checkout scale field), `short_responses` and `longest_entries` (per text field, config-driven), and `caveats` (known limitations of the analysis, written in plain language).
-
-A `schema_version` field is included so a downstream tool (like `app/aggregate_submissions.py`, which combines many students' `summary.json` files into one class-wide CSV) can detect if it's reading a shape it doesn't understand, rather than silently misreading renamed or restructured fields.
+A topic is **open** while it has a `pre` entry and no later `post` with the same topic name. Open topics are just the ones the Reflect dialog offers you under Post; nothing enforces them.
 
 ## Why this design
 
-- **Config-driven, not hardcoded.** `app/config.yaml` defines every question's wording; the JSON `field` names it uses are stable identifiers, decoupled from whatever text an instructor edits them to. Changing a question's wording never changes the data's shape.
-- **Flat and typed, not deeply nested.** Each file answers "what happened at this one moment," so a human (or a script) can read it in isolation without needing the rest of the session for context.
-- **Append, don't rewrite.** The `inputs` array only ever grows during a session — nothing is edited or deleted once written — so the file is an honest, order-preserving trace, not a cleaned-up final draft.
+- **Append, don't rewrite.** Entries are never edited or deleted by the app, so the file is an honest, order-preserving trace, not a cleaned-up final draft. Your prediction (`pre`) can't be quietly revised after you see the result (`post`).
+- **One file per thread.** A log is one line of inquiry you can pick up again days later. You choose where it begins by choosing its first tag.
+- **Saves can't half-finish.** Each save writes a temporary file and swaps it into place, so a crash or closed laptop leaves the previous version intact.
+- **Free tags, not fixed categories.** What matters to you is yours to name; the tag bank only suggests from your own past use.
+- **No identity.** Nothing in the file says who you are.

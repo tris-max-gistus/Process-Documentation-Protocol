@@ -9,16 +9,17 @@ the same format — see "Adding a new entry" at the bottom.
 
 **Can I use this on multiple devices?**
 The tool is designed for one student on one device. If you work on
-different computers, you'll have separate logs — export each one and note
-which device it's from.
+different computers, you'll have separate logs. Note which device each one
+came from.
 
 **What if I make a mistake in a log?**
-You can manually edit JSON files in the `logs/` folder if needed. Each log
-is a plain text JSON file.
+Entries are never edited once saved, on purpose: the log is an honest trace
+of your thinking, mistakes included. Add a new Note saying what was wrong.
 
 **What if I want to start fresh?**
-Delete the `logs/` folder and the tool will create a fresh session on next
-run. The `artifacts/` folder is for you to manage.
+Click **New log**. If you really want a clean slate, move the `logs/` folder
+somewhere safe (rather than deleting it) and the tool creates a new one on
+next run. The `artifacts/` folder is for you to manage.
 
 **Is this tool open source?**
 Yes, you're welcome to explore the code and modify it for your own needs
@@ -50,14 +51,16 @@ absolute paths and isn't portable anyway.
 
 **Symptom:** You get an error like "The action can't be completed because
 the file is open in another program" when trying to move, rename, or
-delete the project folder. Or the app fails to start with a "Port 5000
-is already in use" message — even though you already closed the browser
-tab.
+delete the project folder. (If an old copy is still holding the app's
+port, the new one quietly picks a different free port, so you can end up
+with two copies running.)
 
 **Cause:** Closing the browser tab doesn't always fully stop the local
-server. The app's Python process can keep running in the background,
-which locks the folder (Windows won't let you move/rename a folder that
-contains a currently-running program) and keeps port 5000 occupied.
+server right away. With `Start.vbs` it exits by itself a couple of minutes
+after the tab is closed; in a terminal or VS Code, closing that window or
+pressing Ctrl+C stops it. Until then the app's Python process keeps
+running in the background, which locks the folder (Windows won't let you
+move/rename a folder that contains a currently-running program).
 
 **Fix:** find that process and stop it.
 
@@ -73,13 +76,13 @@ Stop-Process -Id <id> -Force
 
 **Windows (Command Prompt)** — alternative, based on the port instead:
 ```
-netstat -ano | findstr :5000
+netstat -ano | findstr :5173
 taskkill /PID <pid> /F
 ```
 
 **Mac/Linux:**
 ```
-lsof -i :5000
+lsof -i :5173
 kill -9 <pid>
 ```
 
