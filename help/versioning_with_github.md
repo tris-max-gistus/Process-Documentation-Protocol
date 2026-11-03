@@ -1,18 +1,18 @@
 # Versioning This Tool With GitHub
 
-This tool is [open source](https://github.com/tris-max-gistus/Open-Science-Process) — you're welcome to make your own copy and change it however you like, for your own purposes. This guide walks through how, using GitHub, even if you've never used it before.
+This tool is [open source](https://github.com/tris-max-gistus/Process-Documentation-Protocol) — you're welcome to make your own copy and change it however you like, for your own purposes. This guide walks through how, using GitHub, even if you've never used it before.
 
 **Quick reminder:** your own modified copy is for your own exploration. Whatever you submit for the actual class assignment is always the unmodified version your instructor gave you — see `ideation_input.md` in this folder for more on that distinction.
 
 ## Why bother with version control?
 
-If you start changing `config.yaml` or the code and something breaks, version control lets you see exactly what you changed and undo it. It also means you can experiment freely — try something, and if it doesn't work, go back to before you tried it, no harm done.
+If you start changing the code and something breaks, version control lets you see exactly what you changed and undo it. It also means you can experiment freely — try something, and if it doesn't work, go back to before you tried it, no harm done.
 
 ## Option A: GitHub Desktop (no command line needed)
 
 If you'd rather not use a terminal at all:
 1. Install [GitHub Desktop](https://desktop.github.com/) and sign in with a GitHub account (free to create if you don't have one).
-2. Go to the [project page on GitHub](https://github.com/tris-max-gistus/Open-Science-Process) and click **Fork** (top right) — this makes your own copy under your account.
+2. Go to the [project page on GitHub](https://github.com/tris-max-gistus/Process-Documentation-Protocol) and click **Fork** (top right) — this makes your own copy under your account.
 3. In GitHub Desktop: **File → Clone Repository**, choose your fork, pick a folder on your computer.
 4. Make changes to the files in that folder as you normally would.
 5. Back in GitHub Desktop, you'll see your changed files listed. Write a short summary of what you changed, click **Commit to main**, then click **Push origin** to save it to your fork on GitHub.
@@ -23,13 +23,13 @@ That's the whole loop: change something → commit → push. Repeat as often as 
 
 If you're comfortable with a terminal:
 
-1. **Fork the repo** — go to the [project page](https://github.com/tris-max-gistus/Open-Science-Process), click **Fork** (top right).
+1. **Fork the repo** — go to the [project page](https://github.com/tris-max-gistus/Process-Documentation-Protocol), click **Fork** (top right).
 2. **Clone your fork** to your computer:
    ```
-   git clone https://github.com/YOUR-USERNAME/Open-Science-Process.git
-   cd Open-Science-Process
+   git clone https://github.com/YOUR-USERNAME/Process-Documentation-Protocol.git
+   cd Process-Documentation-Protocol
    ```
-3. **Make your changes** — edit `app/config.yaml`, `app/app.py`, or anything else.
+3. **Make your changes** — edit `app/app.py` or anything else.
 4. **Save a checkpoint** of your changes:
    ```
    git add .
@@ -56,7 +56,7 @@ If you ever see git wanting to add one of these, don't force it — the `.gitign
 
 If the original project gets updated later and you want those changes too:
 ```
-git remote add upstream https://github.com/tris-max-gistus/Open-Science-Process.git
+git remote add upstream https://github.com/tris-max-gistus/Process-Documentation-Protocol.git
 git fetch upstream
 git merge upstream/main
 ```

@@ -2,7 +2,7 @@
 
 Each copy of this app folder is fully self-contained: `app/start.py`
 creates and uses a `venv/` subfolder relative to its own location (i.e.
-`app/venv/`), independent of every other copy. Duplicate `UI` into
+`app/venv/`), independent of every other copy. Duplicate this folder into
 `Math` and `Physics`, and you get two completely separate runtimes —
 nothing shared, nothing that can cross-contaminate between them.
 
@@ -15,7 +15,7 @@ nothing shared, nothing that can cross-contaminate between them.
 - **Standard practice.** Same pattern as `node_modules` per JS project:
   per-project environments beat one shared global one, specifically
   because it prevents cross-project coupling.
-- **Cheap.** This venv is just Flask + PyYAML — tens of MB. Duplicating
+- **Cheap.** This venv is just Flask — tens of MB. Duplicating
   it per class costs nothing meaningful.
 
 ## The practical rule

@@ -1,131 +1,152 @@
-#!/usr/bin/env python3
-"""
-Simple launcher for the LLM Usage Logger.
-Handles venv setup, dependency installation, and browser opening.
-Works on Windows, macOS, and Linux.
-"""
+"""Launcher for Process Log. Standard library only, so it runs on any Python 3.9+.
 
+First run builds app/venv and installs Flask; after that it just starts the server
+and opens the browser. Run it from VS Code (Run button), a terminal, or one of the
+launcher scripts next to this folder.
+"""
 import os
-import sys
+import shutil
+import socket
 import subprocess
-import webbrowser
+import sys
 import time
-import platform
+import webbrowser
 from pathlib import Path
 
-def create_venv():
-    """Create virtual environment if it doesn't exist."""
-    venv_path = Path("venv")
-    if venv_path.exists():
-        print("[OK] Virtual environment found")
-        return
+APP_DIR = Path(__file__).resolve().parent
+VENV_DIR = APP_DIR / "venv"
+LOG_FILE = APP_DIR / "launch_log.txt"
+DEFAULT_PORT = 5173  # not 5000: macOS reserves it for AirPlay Receiver
+PY_URL = "https://www.python.org/downloads/"
+IS_WIN = sys.platform == "win32"
 
-    print("Creating virtual environment...")
-    subprocess.check_call([sys.executable, "-m", "venv", "venv"])
-    print("[OK] Virtual environment created")
+# Decide before any redirect: no console means a windowless launch.
+INTERACTIVE = bool(sys.stdout and sys.stdout.isatty())
+if sys.stdout is None or sys.stderr is None:
+    _log = open(LOG_FILE, "a", encoding="utf-8", buffering=1)
+    sys.stdout = sys.stderr = _log
 
-def get_venv_python():
-    """Get path to Python executable in venv (OS-specific)."""
-    venv_path = Path("venv")
-    if platform.system() == "Windows":
-        return venv_path / "Scripts" / "python.exe"
-    else:
-        return venv_path / "bin" / "python"
 
-def install_dependencies():
-    """Install required packages into venv."""
-    python_exe = get_venv_python()
+def say(msg):
+    print(msg, flush=True)
 
-    # Check if packages are already installed
-    try:
-        subprocess.check_output(
-            [str(python_exe), "-c", "import flask, yaml"],
-            stderr=subprocess.DEVNULL
-        )
-        print("[OK] Dependencies already installed")
-        return
-    except subprocess.CalledProcessError:
-        pass
 
-    print("Installing dependencies (Flask, PyYAML)...")
-    subprocess.check_call([str(python_exe), "-m", "pip", "install", "-q", "flask", "pyyaml"])
-    print("[OK] Dependencies installed")
-
-def start_server():
-    """Start Flask development server."""
-    python_exe = get_venv_python()
-
-    print("\n" + "="*60)
-    print("Starting LLM Usage Logger...")
-    print("Opening http://localhost:5000 in your browser")
-    print("Press Ctrl+C to stop the server")
-    print("="*60 + "\n")
-
-    # Open browser after a brief delay to let server start
-    def open_browser():
-        time.sleep(2)
-        webbrowser.open("http://localhost:5000")
-
-    import threading
-    threading.Thread(target=open_browser, daemon=True).start()
-
-    # CREATE_NO_WINDOW keeps this from popping a second console: harmless
-    # when we already have one (inherits it), and required when launched
-    # windowless (e.g. via Start.vbs) so Windows doesn't allocate
-    # a fresh one for the child process.
-    creationflags = subprocess.CREATE_NO_WINDOW if platform.system() == "Windows" else 0
-
-    # Pass sys.stdout/stderr explicitly rather than relying on handle
-    # inheritance: under pythonw (windowless) the inherited console handle
-    # is invalid, which crashes the child the instant it tries to print().
-    # sys.stdout/stderr here are always real, valid streams by this point
-    # (either the normal console, or the log file set up below).
-    subprocess.call(
-        [str(python_exe), "app.py"],
-        creationflags=creationflags,
-        stdout=sys.stdout,
-        stderr=sys.stderr,
-    )
-
-def show_error_box(message):
-    """Best-effort native error dialog for headless (no-console) launches."""
-    if platform.system() == "Windows":
+def fatal(msg):
+    """Print the problem, and show a dialog when there is no console to read it in."""
+    say(f"\nProcess Log could not start:\n{msg}\n")
+    if not INTERACTIVE:
         try:
-            import ctypes
-            ctypes.windll.user32.MessageBoxW(0, message, "LLM Usage Logger - Error", 0x10)
+            if IS_WIN:
+                import ctypes
+                ctypes.windll.user32.MessageBoxW(0, msg, "Process Log", 0x10)
+            elif sys.platform == "darwin":
+                text = msg.replace("\\", "\\\\").replace('"', '\\"')
+                subprocess.run(["osascript", "-e",
+                                f'display dialog "{text}" with title "Process Log" buttons {{"OK"}}'],
+                               check=False)
         except Exception:
             pass
+    sys.exit(1)
+
+
+def venv_python():
+    return VENV_DIR / ("Scripts/python.exe" if IS_WIN else "bin/python")
+
+
+def run(cmd, **kw):
+    return subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                          text=True, **kw)
+
+
+def venv_works():
+    py = venv_python()
+    if not py.exists():
+        return False
+    try:
+        return run([str(py), "-c", "import flask"]).returncode == 0
+    except OSError:
+        return False
+
+
+def ensure_venv():
+    if venv_works():
+        return
+    py = venv_python()
+    # A venv copied from another machine or folder is not portable; rebuild it.
+    broken = VENV_DIR.exists()
+    if broken:
+        try:
+            ok = py.exists() and run([str(py), "-c", "pass"]).returncode == 0
+        except OSError:
+            ok = False
+        if not ok:
+            say("Existing app/venv does not work on this computer; rebuilding it.")
+            shutil.rmtree(VENV_DIR, ignore_errors=True)
+    if not py.exists():
+        say("First run: setting up (this takes about a minute, needs internet once)...")
+        r = run([sys.executable, "-m", "venv", str(VENV_DIR)])
+        if r.returncode != 0 or not py.exists():
+            fatal("Could not create the app's Python environment.\n\n" + r.stdout[-800:])
+    say("Installing Flask...")
+    r = run([str(py), "-m", "pip", "install", "-q", "--disable-pip-version-check", "flask"])
+    if r.returncode != 0:
+        fatal("Could not install Flask. Check your internet connection and run this again.\n\n"
+              + r.stdout[-800:])
+
+
+def pick_port():
+    pref = int(os.environ.get("UI2_PORT", DEFAULT_PORT))
+    for port in (pref, 0):
+        s = socket.socket()
+        try:
+            s.bind(("127.0.0.1", port))
+            return s.getsockname()[1]
+        except OSError:
+            continue
+        finally:
+            s.close()
+    fatal("No free network port was available on this computer.")
+
+
+def wait_for(port, proc, timeout=20):
+    end = time.time() + timeout
+    while time.time() < end and proc.poll() is None:
+        try:
+            with socket.create_connection(("127.0.0.1", port), timeout=0.5):
+                return True
+        except OSError:
+            time.sleep(0.25)
+    return False
+
+
+def main():
+    if sys.version_info < (3, 9):
+        fatal(f"Python 3.9 or newer is needed (this is {sys.version.split()[0]}).\n"
+              f"Install it from {PY_URL} and try again.")
+    ensure_venv()
+    port = pick_port()
+    env = dict(os.environ, UI2_PORT=str(port))
+    if not INTERACTIVE:
+        env["UI2_WATCHDOG"] = "1"  # no console to close, so quit when the tab is gone
+    kw = {}
+    if IS_WIN and not INTERACTIVE:
+        kw["creationflags"] = 0x08000000  # CREATE_NO_WINDOW
+    out = sys.stdout if INTERACTIVE else open(LOG_FILE, "a", encoding="utf-8")
+    proc = subprocess.Popen([str(venv_python()), str(APP_DIR / "app.py")],
+                            cwd=str(APP_DIR), env=env, stdout=out, stderr=subprocess.STDOUT, **kw)
+    if not wait_for(port, proc):
+        fatal("The app did not start. Details are in app/launch_log.txt "
+              "(or above, if you ran this in a terminal).")
+    url = f"http://127.0.0.1:{port}/"
+    say(f"Process Log is running at {url}\nClose this window or press Ctrl+C to stop it.")
+    if not os.environ.get("UI2_NO_BROWSER"):
+        webbrowser.open(url)
+    try:
+        proc.wait()
+    except KeyboardInterrupt:
+        proc.terminate()
+    sys.exit(0)
+
 
 if __name__ == "__main__":
-    # Always run relative to this script's own folder, regardless of how
-    # (or from where) it was launched.
-    os.chdir(Path(__file__).resolve().parent)
-
-    # Under pythonw.exe (used by Start.vbs for a windowless launch)
-    # there is no console, so sys.stdout/stderr are None. Redirect to a
-    # log file so print() doesn't crash and errors are still recoverable.
-    headless = sys.stdout is None
-    if headless:
-        log_file = open("launch_log.txt", "a", buffering=1)
-        sys.stdout = log_file
-        sys.stderr = log_file
-        print(f"\n--- Launch at {time.strftime('%Y-%m-%d %H:%M:%S')} ---")
-
-    try:
-        create_venv()
-        install_dependencies()
-        start_server()
-    except KeyboardInterrupt:
-        print("\n\nServer stopped.")
-        sys.exit(0)
-    except Exception as e:
-        print(f"\n[ERROR] {e}")
-        print("\nIf you're having trouble, try:")
-        print("  - Deleting the 'venv' folder and running start.py again")
-        print("  - Making sure Python 3.7+ is installed")
-        if headless:
-            show_error_box(
-                f"LLM Usage Logger failed to start:\n\n{e}\n\n"
-                f"See launch_log.txt in this folder for details."
-            )
-        sys.exit(1)
+    main()

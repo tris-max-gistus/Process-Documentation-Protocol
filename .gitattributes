@@ -1,0 +1,2 @@
+# macOS runs this directly; Windows line endings would break the #! line.
+start.command text eol=lf
