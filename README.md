@@ -43,7 +43,7 @@ This distinction is rooted in the work of [Dr. Emily Bender](https://linguistics
 
 ## Start it
 
-You need Python 3.9 or newer from [python.org](https://www.python.org/downloads/),
+You need Python 3.10 - 3.14 (there have been issues with 3.15) from [python.org](https://www.python.org/downloads/),
 and (recommended) [VS Code](https://code.visualstudio.com/).
 
 | Where | How |
